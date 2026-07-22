@@ -67,8 +67,13 @@ the protection is.
    ```bash
    cd engine && source .venv/bin/activate && python -m veil serve
    ```
-2. Open **Adobe UXP Developer Tool** → **Add Plugin** → select
-   `plugin/manifest.json` → **Load**. (Photoshop 2026 must be running.)
+2. Load the plugin. Either:
+   - **Dev:** Adobe UXP Developer Tool → **Add Plugin** → select
+     `plugin/manifest.json` → **Load** (Photoshop 2026 must be running); or
+   - **Packaged:** build a `.ccx` with `./plugin/build-ccx.sh` (output in
+     `plugin/dist/`) and install it. The script produces an unsigned `.ccx`
+     (loads via UDT, installs on most setups); for a fully signed distributable,
+     use the UXP Developer Tool's **Package** action.
 3. In Photoshop: **Plugins → Palimpsest Veil**. Pick a mode, strength, and tier,
    then **Protect Image**. The result is added as a new **`Veil — …`** layer; your
    original layer is left untouched. The green/red dot shows whether the Deep
