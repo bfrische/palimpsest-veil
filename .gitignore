@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Model weights / caches (never commit — downloaded on first Deep run)
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+.cache/
+models/
+weights/
+hf-cache/
+
+# Node / UXP
+node_modules/
+plugin/dist/
+*.ccx
+
+# Scratch / outputs
+out/
+outputs/
+*.log
+sample_protected*.png
+
+# macOS
+.DS_Store
+.AppleDouble

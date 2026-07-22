@@ -1,0 +1,9 @@
+{
+  "name": "palimpsest-veil-plugin",
+  "version": "0.1.0",
+  "description": "Photoshop UXP panel for palimpsest-veil — protect your images from AI training.",
+  "private": true,
+  "uxp": {
+    "host": "Photoshop"
+  }
+}

@@ -1,0 +1,16 @@
+# Core numerics / imaging (Quick pass + CLI work with just these)
+numpy>=1.24
+pillow>=10.0
+
+# Deep pass (adversarial protection) — larger install, pulls model weights on first run
+torch>=2.2
+torchvision>=0.17
+diffusers>=0.27
+transformers>=4.40
+accelerate>=0.30
+safetensors>=0.4
+lpips>=0.1.4
+
+# Localhost bridge server used by the Photoshop plugin
+fastapi>=0.110
+uvicorn>=0.29

@@ -1,0 +1,62 @@
+<style>
+  :root { --gap: 10px; }
+  body { margin: 0; }
+  #app { padding: 12px; display: flex; flex-direction: column; gap: var(--gap); }
+  .section { display: flex; flex-direction: column; gap: 4px; }
+  .lbl { opacity: 0.8; }
+  sp-radio { display: block; }
+  .progressWrap {
+    width: 100%; height: 6px; border-radius: 3px;
+    background: rgba(128,128,128,0.25); overflow: hidden; margin-top: 2px;
+  }
+  .bar { width: 0%; height: 100%; background: #5b8def; transition: width 0.15s ease; }
+  .status { min-height: 16px; opacity: 0.85; }
+  .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .dot.on { background: #3ba55d; }
+  .dot.off { background: #b04a4a; }
+  .hint { opacity: 0.6; font-size: 11px; }
+</style>
+
+<div id="app">
+  <sp-heading size="S">Palimpsest Veil</sp-heading>
+  <sp-detail>Protect your images from AI training</sp-detail>
+
+  <sp-divider size="M"></sp-divider>
+
+  <div class="section">
+    <sp-detail class="lbl">Mode</sp-detail>
+    <sp-radio-group id="mode" selected="cloak" name="mode">
+      <sp-radio value="cloak">Cloak — hide style</sp-radio>
+      <sp-radio value="shade">Shade — poison concept</sp-radio>
+    </sp-radio-group>
+  </div>
+
+  <div class="section" id="decoyRow" hidden>
+    <sp-detail class="lbl">Decoy concept</sp-detail>
+    <sp-textfield id="decoy" placeholder="e.g. stained glass"></sp-textfield>
+  </div>
+
+  <div class="section">
+    <sp-detail class="lbl">Strength: <span id="strengthVal">50</span></sp-detail>
+    <sp-slider id="strength" min="0" max="100" value="50"></sp-slider>
+  </div>
+
+  <div class="section">
+    <sp-detail class="lbl">Tier</sp-detail>
+    <sp-radio-group id="tier" selected="quick" name="tier">
+      <sp-radio value="quick">Quick — instant, no backend</sp-radio>
+      <sp-radio value="deep">Deep — strong<span id="dot" class="dot off"></span></sp-radio>
+    </sp-radio-group>
+    <sp-detail class="hint" id="deepHint">Deep needs the engine: <code>python -m veil serve</code></sp-detail>
+  </div>
+
+  <sp-button id="run" variant="cta">Protect Image</sp-button>
+
+  <div class="progressWrap"><div id="bar" class="bar"></div></div>
+  <sp-detail id="status" class="status">Ready.</sp-detail>
+</div>
+
+<script src="src/main.js"></script>
