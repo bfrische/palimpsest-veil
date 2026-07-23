@@ -1,12 +1,21 @@
 {
-  "manifestVersion": 5,
   "id": "com.palimpsest.veil",
   "name": "Palimpsest Veil",
   "version": "0.1.0",
   "main": "index.html",
-  "host": [
-    { "app": "PS", "minVersion": "24.2.0" }
-  ],
+  "manifestVersion": 5,
+  "host": {
+    "app": "PS",
+    "minVersion": "24.4.0",
+    "data": {
+      "apiVersion": 2
+    }
+  },
+  "requiredPermissions": {
+    "network": {
+      "domains": ["http://localhost:8760", "http://127.0.0.1:8760"]
+    }
+  },
   "entrypoints": [
     {
       "type": "panel",
@@ -14,23 +23,36 @@
       "label": { "default": "Palimpsest Veil" },
       "minimumSize": { "width": 230, "height": 320 },
       "maximumSize": { "width": 800, "height": 2000 },
-      "preferredDockedSize": { "width": 300, "height": 500 },
-      "preferredFloatingSize": { "width": 320, "height": 540 }
+      "preferredDockedSize": { "width": 300, "height": 520 },
+      "preferredFloatingSize": { "width": 320, "height": 560 },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/dark.png",
+          "scale": [1, 2],
+          "theme": ["darkest", "dark", "medium"],
+          "species": ["generic"]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/light.png",
+          "scale": [1, 2],
+          "theme": ["lightest", "light"],
+          "species": ["generic"]
+        }
+      ]
     }
   ],
-  "requiredPermissions": {
-    "localFileSystem": "request",
-    "network": {
-      "domains": ["http://localhost:8760", "http://127.0.0.1:8760"]
-    }
-  },
   "icons": [
     {
-      "width": 23,
-      "height": 23,
-      "path": "icons/icon.png",
+      "width": 48,
+      "height": 48,
+      "path": "icons/plugin.png",
       "scale": [1, 2],
-      "theme": ["darkest", "dark", "medium", "lighter", "light", "lightest"]
+      "theme": ["darkest", "dark", "medium", "lightest", "light"],
+      "species": ["pluginList"]
     }
   ]
 }
