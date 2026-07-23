@@ -1,62 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
 <style>
-  :root { --gap: 10px; }
+  /* Sizing/spacing only — colors come from the host theme via Spectrum
+     components so all Photoshop themes work untouched. */
   body { margin: 0; }
-  #app { padding: 12px; display: flex; flex-direction: column; gap: var(--gap); }
-  .section { display: flex; flex-direction: column; gap: 4px; }
+  #root { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
   .lbl { opacity: 0.8; }
-  sp-radio { display: block; }
+  .muted { opacity: 0.7; }
+  [hidden] { display: none !important; }
+  #root sp-picker,
+  #root sp-textfield,
+  #root sp-slider,
+  #root sp-button { width: 100%; }
   .progressWrap {
     width: 100%; height: 6px; border-radius: 3px;
-    background: rgba(128,128,128,0.25); overflow: hidden; margin-top: 2px;
+    background: rgba(128,128,128,0.25); overflow: hidden;
   }
-  .bar { width: 0%; height: 100%; background: #5b8def; transition: width 0.15s ease; }
-  .status { min-height: 16px; opacity: 0.85; }
+  .bar { width: 0%; height: 100%; background: #5b8def; }
+  #status { min-height: 14px; }
   .dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    margin-left: 6px; vertical-align: middle;
+    margin-right: 5px; vertical-align: middle; background: #b04a4a;
   }
   .dot.on { background: #3ba55d; }
-  .dot.off { background: #b04a4a; }
-  .hint { opacity: 0.6; font-size: 11px; }
 </style>
+</head>
+<body>
+  <div id="root">
+    <sp-heading size="S">Palimpsest Veil</sp-heading>
+    <sp-body size="XS" class="muted">Protect your images from AI training</sp-body>
 
-<div id="app">
-  <sp-heading size="S">Palimpsest Veil</sp-heading>
-  <sp-detail>Protect your images from AI training</sp-detail>
+    <div class="field">
+      <sp-body size="XS" class="lbl">Mode</sp-body>
+      <sp-picker id="mode" size="M">
+        <sp-menu slot="options">
+          <sp-menu-item value="cloak" selected>Cloak — hide style</sp-menu-item>
+          <sp-menu-item value="shade">Shade — poison concept</sp-menu-item>
+        </sp-menu>
+      </sp-picker>
+    </div>
 
-  <sp-divider size="M"></sp-divider>
+    <div class="field" id="decoyRow" hidden>
+      <sp-body size="XS" class="lbl">Decoy concept</sp-body>
+      <sp-textfield id="decoy" placeholder="e.g. stained glass"></sp-textfield>
+    </div>
 
-  <div class="section">
-    <sp-detail class="lbl">Mode</sp-detail>
-    <sp-radio-group id="mode" selected="cloak" name="mode">
-      <sp-radio value="cloak">Cloak — hide style</sp-radio>
-      <sp-radio value="shade">Shade — poison concept</sp-radio>
-    </sp-radio-group>
+    <div class="field">
+      <sp-slider id="strength" min="0" max="100" value="50">
+        <sp-label slot="label">Strength</sp-label>
+      </sp-slider>
+    </div>
+
+    <div class="field">
+      <sp-body size="XS" class="lbl">Tier</sp-body>
+      <sp-picker id="tier" size="M">
+        <sp-menu slot="options">
+          <sp-menu-item value="quick" selected>Quick — instant</sp-menu-item>
+          <sp-menu-item value="deep">Deep — strong</sp-menu-item>
+        </sp-menu>
+      </sp-picker>
+    </div>
+
+    <sp-button id="run" variant="cta">Protect Image</sp-button>
+
+    <div class="progressWrap"><div id="bar" class="bar"></div></div>
+    <sp-body id="status" size="XS" class="muted">Ready.</sp-body>
+    <sp-body size="XS" class="muted"><span id="dot" class="dot"></span><span id="engineText">Engine: checking…</span></sp-body>
   </div>
 
-  <div class="section" id="decoyRow" hidden>
-    <sp-detail class="lbl">Decoy concept</sp-detail>
-    <sp-textfield id="decoy" placeholder="e.g. stained glass"></sp-textfield>
-  </div>
-
-  <div class="section">
-    <sp-detail class="lbl">Strength: <span id="strengthVal">50</span></sp-detail>
-    <sp-slider id="strength" min="0" max="100" value="50"></sp-slider>
-  </div>
-
-  <div class="section">
-    <sp-detail class="lbl">Tier</sp-detail>
-    <sp-radio-group id="tier" selected="quick" name="tier">
-      <sp-radio value="quick">Quick — instant, no backend</sp-radio>
-      <sp-radio value="deep">Deep — strong<span id="dot" class="dot off"></span></sp-radio>
-    </sp-radio-group>
-    <sp-detail class="hint" id="deepHint">Deep needs the engine: <code>python -m veil serve</code></sp-detail>
-  </div>
-
-  <sp-button id="run" variant="cta">Protect Image</sp-button>
-
-  <div class="progressWrap"><div id="bar" class="bar"></div></div>
-  <sp-detail id="status" class="status">Ready.</sp-detail>
-</div>
-
-<script src="src/main.js"></script>
+  <script src="src/quick.js"></script>
+  <script src="src/bridge.js"></script>
+  <script src="src/photoshop.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
