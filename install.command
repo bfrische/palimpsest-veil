@@ -111,9 +111,15 @@ cat > "$LA_PLIST" <<PLIST
 PLIST
 
 UID_NUM="$(id -u)"
-launchctl bootout "gui/${UID_NUM}/${LA_LABEL}" 2>/dev/null || true
-launchctl bootstrap "gui/${UID_NUM}" "$LA_PLIST" 2>/dev/null || launchctl load -w "$LA_PLIST"
-launchctl kickstart -k "gui/${UID_NUM}/${LA_LABEL}" 2>/dev/null || true
+# Reloading a launch agent is idempotent but each step returns non-zero in the
+# "already/never loaded" cases — never let that abort the installer.
+set +e
+launchctl bootout "gui/${UID_NUM}/${LA_LABEL}" 2>/dev/null
+sleep 1
+launchctl bootstrap "gui/${UID_NUM}" "$LA_PLIST" 2>/dev/null
+launchctl enable "gui/${UID_NUM}/${LA_LABEL}" 2>/dev/null
+launchctl kickstart -k "gui/${UID_NUM}/${LA_LABEL}" 2>/dev/null
+set -e
 
 printf "      waiting for the engine to answer"
 for _ in $(seq 1 25); do

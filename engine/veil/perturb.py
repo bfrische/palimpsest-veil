@@ -79,8 +79,7 @@ def _protect_tile(tile01, mode, eps, steps, decoy, lpips_fn):
             delta.clamp_(-eps, eps)
 
     adv = torch.clamp(x + delta.detach(), 0.0, 1.0)
-    out = adv.squeeze(0).permute(1, 2, 0).cpu().numpy()
-    return (out * 255.0).round().clip(0, 255).astype(np.uint8)
+    return adv.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.float32)
 
 
 def _starts(total: int, size: int, overlap: int) -> List[int]:
@@ -112,8 +111,8 @@ def _feather(h: int, w: int, overlap: int) -> np.ndarray:
     return (ramp(h)[:, None] * ramp(w)[None, :])[..., None]
 
 
-def deep_protect(
-    img: np.ndarray,
+def deep_protect_float(
+    rgb01: np.ndarray,
     mode: str = modes.CLOAK,
     strength: float = 0.5,
     decoy: Optional[str] = None,
@@ -121,12 +120,12 @@ def deep_protect(
     use_lpips: bool = True,
     progress: Optional[Callable[[float], None]] = None,
 ) -> np.ndarray:
-    """Protect an ``uint8`` image (H, W, 3 or 4). Alpha is passed through."""
+    """Core: normalised float RGB (H, W, 3) in [0, 1] -> same shape/range.
+
+    Bit-depth agnostic — the caller normalises 8- or 16-bit pixels to [0, 1].
+    """
     mode = modes.normalize_mode(mode)
-    img = np.asarray(img)
-    had_alpha = img.ndim == 3 and img.shape[2] == 4
-    alpha = img[..., 3:4] if had_alpha else None
-    rgb = img[..., :3].astype(np.float32) / 255.0
+    rgb = np.asarray(rgb01, dtype=np.float32)[..., :3]
     h, w = rgb.shape[:2]
 
     eps = config.strength_to_eps(strength)
@@ -147,14 +146,35 @@ def deep_protect(
     tiles = list(_tile_grid(h, w, config.TILE_SIZE, config.TILE_OVERLAP))
     for k, (y0, y1, x0, x1) in enumerate(tiles):
         tile = np.ascontiguousarray(rgb[y0:y1, x0:x1])
-        res = _protect_tile(tile, mode, eps, steps, decoy, lpips_fn)
+        res = _protect_tile(tile, mode, eps, steps, decoy, lpips_fn)  # float [0,1]
         wgt = _feather(y1 - y0, x1 - x0, config.TILE_OVERLAP)
-        acc[y0:y1, x0:x1] += res.astype(np.float32) * wgt
+        acc[y0:y1, x0:x1] += res * wgt
         wacc[y0:y1, x0:x1] += wgt
         if progress:
             progress((k + 1) / len(tiles))
 
-    out = (acc / np.maximum(wacc, 1e-6)).round().clip(0, 255).astype(np.uint8)
+    return (acc / np.maximum(wacc, 1e-6)).astype(np.float32)
+
+
+def deep_protect(
+    img: np.ndarray,
+    mode: str = modes.CLOAK,
+    strength: float = 0.5,
+    decoy: Optional[str] = None,
+    steps: Optional[int] = None,
+    use_lpips: bool = True,
+    progress: Optional[Callable[[float], None]] = None,
+) -> np.ndarray:
+    """Convenience wrapper for 8-bit ``uint8`` images. Alpha is passed through."""
+    img = np.asarray(img)
+    had_alpha = img.ndim == 3 and img.shape[2] == 4
+    alpha = img[..., 3:4] if had_alpha else None
+    out01 = deep_protect_float(
+        img[..., :3].astype(np.float32) / 255.0,
+        mode=mode, strength=strength, decoy=decoy,
+        steps=steps, use_lpips=use_lpips, progress=progress,
+    )
+    out = (out01 * 255.0).round().clip(0, 255).astype(np.uint8)
     if had_alpha:
         out = np.concatenate([out, alpha], axis=2)
     return out

@@ -40,19 +40,19 @@
       if (tier === "deep") {
         setStatus("Protecting (Deep)… this can take a while.");
         setProgress(0.15);
-        out = await window.VeilBridge.deepProtect(px.data, px.width, px.height, px.components, {
+        out = await window.VeilBridge.deepProtect(px.data01, px.width, px.height, {
           mode: mode,
           strength: strength,
           decoy: decoy,
         });
       } else {
         setStatus("Protecting (Quick)…");
-        out = window.VeilQuick.quickProtect(px.data, px.width, px.height, px.components, strength, 1);
+        out = window.VeilQuick.quickProtect(px.data01, px.width, px.height, 3, strength, 1);
       }
 
       setProgress(0.85);
       setStatus("Writing protected layer…");
-      await window.VeilPS.putResultLayer(out, px.width, px.height, px.colorProfile, "Veil — " + mode);
+      await window.VeilPS.putResultLayer(out, px.width, px.height, px.componentSize, px.colorProfile, "Veil — " + mode);
 
       setProgress(1);
       setStatus('Done — added "Veil — ' + mode + '" layer.');

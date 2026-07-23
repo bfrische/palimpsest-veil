@@ -42,35 +42,50 @@ def create_app():
         request: Request,
         width: int = Query(...),
         height: int = Query(...),
-        channels: int = Query(4),
+        channels: int = Query(3),
         mode: str = Query(modes.CLOAK),
         strength: float = Query(0.5),
         tier: str = Query("deep"),
         decoy: str = Query(None),
+        dtype: str = Query("uint8"),
     ):
         raw = await request.body()
-        expected = width * height * channels
+        bytes_per = 4 if dtype == "float32" else 1
+        expected = width * height * channels * bytes_per
         if len(raw) != expected:
             return Response(
                 content=f"payload length {len(raw)} != expected {expected}".encode(),
                 status_code=400,
             )
-        arr = np.frombuffer(raw, dtype=np.uint8).reshape(height, width, channels).copy()
 
+        # Normalised-float path — bit-depth agnostic (the Photoshop plugin uses
+        # this for both 8- and 16-bit documents).
+        if dtype == "float32":
+            arr = np.frombuffer(raw, dtype=np.float32).reshape(height, width, channels).copy()
+            if tier == "quick":
+                result = quick.quick_protect_float(arr, strength=strength)
+            else:
+                from .perturb import deep_protect_float
+
+                result = deep_protect_float(arr, mode=mode, strength=strength, decoy=decoy)
+            return Response(
+                content=np.ascontiguousarray(result, dtype=np.float32).tobytes(),
+                media_type="application/octet-stream",
+            )
+
+        # Legacy uint8 path (used by curl tests / the CLI-style contract).
+        arr = np.frombuffer(raw, dtype=np.uint8).reshape(height, width, channels).copy()
         if tier == "quick":
             result = quick.quick_protect(arr, strength=strength)
         else:
             from .perturb import deep_protect
 
             result = deep_protect(arr, mode=mode, strength=strength, decoy=decoy)
-
-        # Return exactly the channel count the client sent.
         if result.shape[2] != channels:
             if channels == 4 and result.shape[2] == 3:
                 result = np.concatenate([result, arr[..., 3:4]], axis=2)
             else:
                 result = result[..., :channels]
-
         return Response(
             content=np.ascontiguousarray(result, dtype=np.uint8).tobytes(),
             media_type="application/octet-stream",

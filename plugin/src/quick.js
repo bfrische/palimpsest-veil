@@ -1,9 +1,11 @@
-/* Quick tier — a faithful JS mirror of engine/veil/quick.py so the plugin
- * protects images with zero backend. Same counter-based hash, same 1-2-1
- * high-pass, same amplitude mapping. Interleaved RGB(A) bytes in; any alpha
- * channel is left untouched. Exposes window.VeilQuick. */
+/* Quick tier — a faithful JS mirror of engine/veil/quick.py. Works in
+ * normalised float [0,1] (bit-depth agnostic). Same counter-based hash, same
+ * 1-2-1 high-pass, same amplitude. Exposes window.VeilQuick. */
 "use strict";
 (function () {
+  var AMP_BASE = 1.0 / 255.0;
+  var AMP_SPAN = 7.0 / 255.0;
+
   function hash01(idx, seed) {
     let x = (idx + Math.imul(seed, 0x9e3779b1)) >>> 0;
     x ^= x >>> 16;
@@ -35,14 +37,16 @@
     }
   }
 
-  function quickProtect(data, width, height, components, strength, seed) {
+  // data01: Float32 normalised, interleaved, `components` channels. Returns a
+  // new Float32Array in [0,1]; color channels perturbed, alpha untouched.
+  function quickProtect(data01, width, height, components, strength, seed) {
     if (seed === undefined) seed = 1;
     strength = Math.max(0, Math.min(1, strength));
-    const amp = 1.0 + 7.0 * strength;
+    const amp = AMP_BASE + AMP_SPAN * strength;
     const colorChannels = Math.min(components, 3);
     const n = width * height;
 
-    const out = new Uint8Array(data); // copy — preserves alpha bytes as-is
+    const out = new Float32Array(data01); // copy — preserves alpha as-is
     const noise = new Float32Array(n);
     const low = new Float32Array(n);
     const tmp = new Float32Array(n);
@@ -64,9 +68,8 @@
 
       for (let i = 0; i < n; i++) {
         const o = i * components + ch;
-        let v = data[o] + amp * noise[i] * norm;
-        v = v < 0 ? 0 : v > 255 ? 255 : v;
-        out[o] = (v + 0.5) | 0;
+        let v = data01[o] + amp * noise[i] * norm;
+        out[o] = v < 0 ? 0 : v > 1 ? 1 : v;
       }
     }
     return out;
