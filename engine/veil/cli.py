@@ -81,7 +81,31 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--port", type=int, default=config.PORT)
     sp.set_defaults(func=_serve_cmd)
 
+    ev = sub.add_parser("evaluate", help="measure protection quality of a protected image")
+    ev.add_argument("original", help="the unprotected image")
+    ev.add_argument("protected", help="the protected image (same size)")
+    ev.add_argument("-m", "--mode", choices=modes.MODES, default=modes.CLOAK)
+    ev.add_argument("--decoy", default=None, help="Shade decoy concept, to check it moved toward it")
+    ev.add_argument("--transfer", action="store_true",
+                    help="also test a held-out encoder (CLIP ViT-L/14, ~1.6 GB download)")
+    ev.add_argument("--diff", dest="diff", default=None, help="write a 10x-amplified difference map here")
+    ev.set_defaults(func=_evaluate_cmd)
+
     return p
+
+
+def _evaluate_cmd(args) -> int:
+    from .evaluate import evaluate
+
+    evaluate(
+        args.original,
+        args.protected,
+        mode=args.mode,
+        decoy=args.decoy,
+        transfer=args.transfer,
+        diff_path=args.diff,
+    )
+    return 0
 
 
 def main(argv: Optional[list] = None) -> int:

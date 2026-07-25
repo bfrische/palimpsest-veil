@@ -90,6 +90,42 @@ The plugin is installed by `install.command`. If you prefer the developer flow,
 you can instead load `plugin/manifest.json` via the Adobe UXP Developer Tool, or
 build a `.ccx` with `./plugin/build-ccx.sh`.
 
+## Validating protection
+
+Protection has two axes — how *invisible* it is, and how much it actually
+*disrupts* a model. To measure both, export the original and the protected
+(flattened) image as PNGs and run:
+
+```bash
+python -m veil evaluate original.png protected.png -m cloak
+python -m veil evaluate original.png protected.png -m shade --decoy "stained glass"
+python -m veil evaluate original.png protected.png -m cloak --transfer --diff diff.png
+```
+
+The report covers:
+
+- **Visibility** — PSNR / SSIM / LPIPS / max·mean Δ. Higher PSNR = less visible.
+- **Feature disruption** — how far the protection moves your image in the space
+  the mode targets (**VAE latent for Cloak, CLIP embedding for Shade**), compared
+  to plain noise of the *same visibility*. `>= 2x` means the perturbation is
+  meaningfully adversarial rather than glorified noise. This is content-dependent
+  — flat images score low, textured art scores higher — so test on real work.
+- **Robustness** — how much of that disruption survives JPEG, downscaling, and
+  blur. Protection that collapses toward 0 after JPEG is fragile.
+- **Shade target** — for Shade, whether the image moved *toward* your decoy
+  concept in CLIP space (the direct efficacy signal for poisoning).
+- **Transfer** (`--transfer`) — repeats the measurement on a held-out encoder
+  (CLIP ViT-L/14) you did *not* optimize against; movement there means the
+  perturbation generalizes rather than overfitting the surrogate.
+- **`--diff`** — writes a 10× amplified difference map so you can see the pattern.
+
+### The ground truth
+
+Surrogate metrics correlate with protection but don't prove it. The real test is
+adversarial: train a style-mimicry LoRA / DreamBooth on your protected images and
+check that it fails to reproduce your style (Cloak) or associates the wrong
+concept (Shade). That training harness isn't included yet — ask if you want it.
+
 ## Limitations — read this
 
 Protection tools like these are **mitigations, not guarantees**:
