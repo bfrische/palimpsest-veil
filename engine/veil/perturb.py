@@ -117,15 +117,33 @@ def _feather(h: int, w: int, overlap: int) -> np.ndarray:
     return (ramp(h)[:, None] * ramp(w)[None, :])[..., None]
 
 
-def _shade_whole(rgb01, strength, decoy, steps, use_lpips, progress):
-    """Shade path: steer the WHOLE image toward a decoy concept and make it
-    survive rescaling.
+def _detail_mask(x, m_min=0.03, ref=0.05):
+    """Per-pixel budget multiplier in [m_min, 1] from local image activity.
 
-    CLIP is a global, low-resolution encoder, so unlike Cloak we must not tile
-    (that fragments the concept) and must not rely on high-frequency detail
-    (scrapers downscale). We optimise a perturbation at a capped working
-    resolution with expectation-over-transforms (a random downscale each step),
-    then upsample that perturbation so it is smooth and downscale-robust.
+    Uses an ABSOLUTE local-contrast reference so genuinely flat regions
+    (blurred bokeh, sky) get ~m_min — essentially zero perturbation — no matter
+    how much of the frame is smooth, while textured regions (feathers, foliage)
+    approach 1 and hide the perturbation. x: [1,3,H,W] in [0,1] -> [1,1,H,W].
+    """
+    import torch.nn.functional as F
+
+    lum = x.mean(1, keepdim=True)
+    gx = F.pad((lum[:, :, :, 1:] - lum[:, :, :, :-1]).abs(), (0, 1, 0, 0))
+    gy = F.pad((lum[:, :, 1:, :] - lum[:, :, :-1, :]).abs(), (0, 0, 0, 1))
+    g = F.avg_pool2d(gx + gy, 9, stride=1, padding=4)
+    m = (g / ref).clamp(0, 1) ** 1.5
+    return m_min + (1.0 - m_min) * m
+
+
+def _shade_whole(rgb01, strength, decoy, steps, use_lpips, progress):
+    """Shade path: steer the WHOLE image toward a decoy concept, invisibly.
+
+    Optimises the perturbation at NATIVE resolution (no downsample+upsample, so
+    masked-out flat regions stay truly untouched — no background haze),
+    concentrates it in textured detail via ``_detail_mask``, and uses
+    expectation-over-transforms (a random downscale before CLIP each step) so it
+    survives a scraper's resize. The VAE nudge is computed at a bounded
+    resolution to keep memory sane on large images.
     """
     import random
 
@@ -141,35 +159,32 @@ def _shade_whole(rgb01, strength, decoy, steps, use_lpips, progress):
     steps = int(steps) if steps else config.strength_to_steps(strength)
 
     h, w = rgb01.shape[:2]
-    work = 512
-    scale = min(1.0, work / max(h, w))
-    wh, ww = max(16, int(round(h * scale))), max(16, int(round(w * scale)))
-    x_full = torch.from_numpy(np.ascontiguousarray(rgb01)).permute(2, 0, 1).unsqueeze(0).float().to(device)
-    x = F.interpolate(x_full, size=(wh, ww), mode="bilinear", align_corners=False).clamp(0, 1)
-    with torch.no_grad():
-        clean_latent = vae.encode(x * 2 - 1).latent_dist.mean
+    long_side = max(h, w)
+    x = torch.from_numpy(np.ascontiguousarray(rgb01)).permute(2, 0, 1).unsqueeze(0).float().to(device)
+    mask = _detail_mask(x)  # native-res: where the perturbation is allowed to live
 
-    lpips_fn = _maybe_lpips() if use_lpips else None
-    if lpips_fn is not None:
-        try:
-            lpips_fn(torch.zeros(1, 3, 16, 16, device=device), torch.zeros(1, 3, 16, 16, device=device))
-        except Exception:
-            lpips_fn = None
+    vscale = min(1.0, 512.0 / long_side)
+    vh, vw = max(64, int(h * vscale)), max(64, int(w * vscale))
+
+    def vae_latent(img):
+        z = img if vscale == 1.0 else F.interpolate(img, size=(vh, vw), mode="bilinear", align_corners=False)
+        return vae.encode(z * 2 - 1).latent_dist.mean
+
+    with torch.no_grad():
+        clean_latent = vae_latent(x)
 
     delta = torch.zeros_like(x, requires_grad=True)
     opt = torch.optim.Adam([delta], lr=max(eps / 4.0, 1e-3))
     for i in range(steps):
         opt.zero_grad(set_to_none=True)
-        adv = torch.clamp(x + delta, 0.0, 1.0)
-        # EOT: view the image at a random scale before CLIP so the perturbation
-        # keeps working after a scraper resizes it.
-        f = random.uniform(0.45, 1.0)
-        adv_s = F.interpolate(adv, size=(max(64, int(wh * f)), max(64, int(ww * f))),
+        adv = torch.clamp(x + delta * mask, 0.0, 1.0)
+        # EOT: view the whole image at a random scale before CLIP.
+        f = random.uniform(0.4, 1.0)
+        sc = max(224, int(min(long_side, 512) * f)) / long_side
+        adv_s = F.interpolate(adv, size=(max(64, int(h * sc)), max(64, int(w * sc))),
                               mode="bilinear", align_corners=False)
         loss = modes.shade_loss(_clip_image_embed(clip_model, adv_s, device), decoy_emb)
-        loss = loss + 0.05 * modes.cloak_loss(vae.encode(adv * 2 - 1).latent_dist.mean, clean_latent)
-        if lpips_fn is not None:
-            loss = loss + 2.0 * lpips_fn(adv * 2 - 1, x * 2 - 1).mean()
+        loss = loss + 0.05 * modes.cloak_loss(vae_latent(adv), clean_latent)
         loss.backward()
         opt.step()
         with torch.no_grad():
@@ -178,9 +193,7 @@ def _shade_whole(rgb01, strength, decoy, steps, use_lpips, progress):
             progress((i + 1) / steps)
 
     with torch.no_grad():
-        delta_full = F.interpolate(delta.detach(), size=(h, w), mode="bilinear",
-                                   align_corners=False).clamp(-eps, eps)
-        adv_full = torch.clamp(x_full + delta_full, 0.0, 1.0)
+        adv_full = torch.clamp(x + delta.detach() * mask, 0.0, 1.0)
     return adv_full.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.float32)
 
 
