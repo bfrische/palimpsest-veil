@@ -67,12 +67,18 @@ def _protect_tile(tile01, mode, eps, steps, decoy, lpips_fn):
         opt.zero_grad(set_to_none=True)
         adv = torch.clamp(x + delta, 0.0, 1.0)
         adv_latent = vae.encode(adv * 2 - 1).latent_dist.mean
-        loss = modes.cloak_loss(adv_latent, clean_latent)
         if mode == modes.SHADE:
+            # Concept steering must lead; the latent term is only a light nudge
+            # for cross-model robustness (and it is scaled so it can't dominate).
             img_emb = _clip_image_embed(clip_model, adv, device)
-            loss = loss + 1.5 * modes.shade_loss(img_emb, decoy_emb)
+            loss = modes.shade_loss(img_emb, decoy_emb)
+            loss = loss + 0.05 * modes.cloak_loss(adv_latent, clean_latent)
+            lpips_w = 2.0
+        else:
+            loss = modes.cloak_loss(adv_latent, clean_latent)
+            lpips_w = 6.0
         if lpips_fn is not None:
-            loss = loss + 8.0 * lpips_fn(adv * 2 - 1, x * 2 - 1).mean()
+            loss = loss + lpips_w * lpips_fn(adv * 2 - 1, x * 2 - 1).mean()
         loss.backward()
         opt.step()
         with torch.no_grad():
@@ -111,6 +117,73 @@ def _feather(h: int, w: int, overlap: int) -> np.ndarray:
     return (ramp(h)[:, None] * ramp(w)[None, :])[..., None]
 
 
+def _shade_whole(rgb01, strength, decoy, steps, use_lpips, progress):
+    """Shade path: steer the WHOLE image toward a decoy concept and make it
+    survive rescaling.
+
+    CLIP is a global, low-resolution encoder, so unlike Cloak we must not tile
+    (that fragments the concept) and must not rely on high-frequency detail
+    (scrapers downscale). We optimise a perturbation at a capped working
+    resolution with expectation-over-transforms (a random downscale each step),
+    then upsample that perturbation so it is smooth and downscale-robust.
+    """
+    import random
+
+    import torch
+    import torch.nn.functional as F
+
+    device = get_device()
+    vae, _ = load_vae()
+    clip_model, _, _ = load_clip()
+    decoy_emb = clip_text_embedding(decoy or modes.DEFAULT_DECOY)
+
+    eps = config.strength_to_eps(strength)
+    steps = int(steps) if steps else config.strength_to_steps(strength)
+
+    h, w = rgb01.shape[:2]
+    work = 512
+    scale = min(1.0, work / max(h, w))
+    wh, ww = max(16, int(round(h * scale))), max(16, int(round(w * scale)))
+    x_full = torch.from_numpy(np.ascontiguousarray(rgb01)).permute(2, 0, 1).unsqueeze(0).float().to(device)
+    x = F.interpolate(x_full, size=(wh, ww), mode="bilinear", align_corners=False).clamp(0, 1)
+    with torch.no_grad():
+        clean_latent = vae.encode(x * 2 - 1).latent_dist.mean
+
+    lpips_fn = _maybe_lpips() if use_lpips else None
+    if lpips_fn is not None:
+        try:
+            lpips_fn(torch.zeros(1, 3, 16, 16, device=device), torch.zeros(1, 3, 16, 16, device=device))
+        except Exception:
+            lpips_fn = None
+
+    delta = torch.zeros_like(x, requires_grad=True)
+    opt = torch.optim.Adam([delta], lr=max(eps / 4.0, 1e-3))
+    for i in range(steps):
+        opt.zero_grad(set_to_none=True)
+        adv = torch.clamp(x + delta, 0.0, 1.0)
+        # EOT: view the image at a random scale before CLIP so the perturbation
+        # keeps working after a scraper resizes it.
+        f = random.uniform(0.45, 1.0)
+        adv_s = F.interpolate(adv, size=(max(64, int(wh * f)), max(64, int(ww * f))),
+                              mode="bilinear", align_corners=False)
+        loss = modes.shade_loss(_clip_image_embed(clip_model, adv_s, device), decoy_emb)
+        loss = loss + 0.05 * modes.cloak_loss(vae.encode(adv * 2 - 1).latent_dist.mean, clean_latent)
+        if lpips_fn is not None:
+            loss = loss + 2.0 * lpips_fn(adv * 2 - 1, x * 2 - 1).mean()
+        loss.backward()
+        opt.step()
+        with torch.no_grad():
+            delta.clamp_(-eps, eps)
+        if progress:
+            progress((i + 1) / steps)
+
+    with torch.no_grad():
+        delta_full = F.interpolate(delta.detach(), size=(h, w), mode="bilinear",
+                                   align_corners=False).clamp(-eps, eps)
+        adv_full = torch.clamp(x_full + delta_full, 0.0, 1.0)
+    return adv_full.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.float32)
+
+
 def deep_protect_float(
     rgb01: np.ndarray,
     mode: str = modes.CLOAK,
@@ -126,6 +199,8 @@ def deep_protect_float(
     """
     mode = modes.normalize_mode(mode)
     rgb = np.asarray(rgb01, dtype=np.float32)[..., :3]
+    if mode == modes.SHADE:
+        return _shade_whole(rgb, strength, decoy, steps, use_lpips, progress)
     h, w = rgb.shape[:2]
 
     eps = config.strength_to_eps(strength)
