@@ -57,25 +57,34 @@ def _to_tensor(im, device, size=512):
 
 
 def anchor_latent(decoy: str):
-    """Target latent for a decoy concept (cached; generates the anchor once)."""
+    """Mean target latent for a decoy concept (cached).
+
+    Averages ``config.POISON_ANCHORS`` generated decoy images so no single
+    anchor's spatial layout survives — the concept transfers, the ghosting does
+    not. Generates the anchors once, then caches the mean.
+    """
     import torch
 
     vae, device = load_vae()
     decoy = (decoy or "abstract sculpture").strip()
+    n = config.POISON_ANCHORS
     config.ANCHOR_DIR.mkdir(parents=True, exist_ok=True)
-    key = hashlib.md5(decoy.lower().encode()).hexdigest()[:12]
+    key = hashlib.md5(f"{decoy.lower()}|mean{n}".encode()).hexdigest()[:12]
     path = config.ANCHOR_DIR / f"{key}.pt"
     if path.exists():
         return torch.load(path, map_location=device)
 
     pipe = _load_sd()
-    img = pipe(f"a photo of {decoy}", num_inference_steps=30, guidance_scale=7.5,
-               generator=torch.Generator(device).manual_seed(0)).images[0]
-    with torch.no_grad():
-        lat = vae.encode(_to_tensor(img, device) * 2 - 1).latent_dist.mean
-    torch.save(lat.cpu(), path)
+    lats = []
+    for s in range(n):
+        img = pipe(f"a photo of {decoy}", num_inference_steps=25, guidance_scale=7.5,
+                   generator=torch.Generator(device).manual_seed(s)).images[0]
+        with torch.no_grad():
+            lats.append(vae.encode(_to_tensor(img, device) * 2 - 1).latent_dist.mean)
+    mean = torch.cat(lats, 0).mean(0, keepdim=True)
+    torch.save(mean.cpu(), path)
     _free_sd()
-    return lat.to(device)
+    return mean.to(device)
 
 
 def _center512(t):

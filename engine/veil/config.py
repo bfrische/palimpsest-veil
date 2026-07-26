@@ -37,6 +37,10 @@ VERSION = "0.2.0"
 # to a target latent; each protected image's latent is dragged toward it.
 SD_MODEL_ID = os.environ.get("VEIL_SD", "sd-legacy/stable-diffusion-v1-5")
 ANCHOR_DIR = CACHE_DIR / "anchors"
+# Decoy anchor images to average. 1 = strongest poison; ghosting is kept off
+# smooth areas by the ruthless activity mask instead (see veil/poison.py), which
+# preserves the poison where averaging destroyed it.
+POISON_ANCHORS = int(os.environ.get("VEIL_POISON_ANCHORS", "1"))
 # Perceptual budget for poison (L-inf in 0..1). Verified floor for cross-VAE
 # transfer is ~0.10; below that it stops poisoning. strength maps into this.
 POISON_EPS_MIN = 0.06

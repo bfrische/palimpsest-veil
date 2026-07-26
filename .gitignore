@@ -45,3 +45,5 @@ engine/kf_*.jpg
 engine/v2*.jpg
 engine/v2*.png
 engine/veil_compare.png
+engine/*.jpg
+engine/heron.jpg

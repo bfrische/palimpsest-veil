@@ -26,24 +26,24 @@
 <body>
   <div id="root">
     <sp-heading size="S">Palimpsest Veil</sp-heading>
-    <sp-body size="XS" class="muted">Poison AI models that train on your images</sp-body>
+    <sp-body size="XS" class="muted">Corrupt AI models that train on your images</sp-body>
 
     <sp-divider size="M"></sp-divider>
 
     <div class="field">
-      <sp-body size="XS" class="lbl">Decoy concept</sp-body>
-      <sp-textfield id="decoy" placeholder="e.g. a vintage car"></sp-textfield>
-      <sp-body class="hint">A model that scrapes this image learns your subject as this instead.</sp-body>
+      <sp-slider id="strength" min="0" max="100" value="55">
+        <sp-label slot="label">Strength</sp-label>
+      </sp-slider>
+      <sp-body class="hint">A model trained on the result produces broken, degraded output. Higher = stronger, slightly more visible texture on detailed areas.</sp-body>
     </div>
 
     <div class="field">
-      <sp-slider id="strength" min="0" max="100" value="80">
-        <sp-label slot="label">Strength</sp-label>
-      </sp-slider>
-      <sp-body class="hint">Higher = stronger poison, more visible texture on detailed areas.</sp-body>
+      <sp-body size="XS" class="lbl">Corruption target (optional)</sp-body>
+      <sp-textfield id="decoy" placeholder="a vintage car"></sp-textfield>
+      <sp-body class="hint">The direction the corruption pushes. The default works for most images.</sp-body>
     </div>
 
-    <sp-button id="run" variant="cta">Poison Image</sp-button>
+    <sp-button id="run" variant="cta">Protect Image</sp-button>
 
     <div class="progressWrap"><div id="bar" class="bar"></div></div>
     <sp-body id="status" size="XS" class="muted">Ready.</sp-body>

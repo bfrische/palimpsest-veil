@@ -14,13 +14,15 @@
   }
 
   // data01: Float32Array normalised RGB (3 channels). Returns Float32Array.
+  // Destruction poison (shade mode): corrupts the training signal so a model
+  // trained on the result produces degraded output. Near-invisible.
   async function poisonProtect(data01, width, height, opts) {
-    const decoy = (opts && opts.decoy) || "";
-    const strength = opts && opts.strength != null ? opts.strength : 0.6;
+    const decoy = (opts && opts.decoy) || "a vintage car";
+    const strength = opts && opts.strength != null ? opts.strength : 0.55;
 
     const qs =
       "width=" + width + "&height=" + height + "&channels=3&dtype=float32" +
-      "&mode=poison&strength=" + strength + "&decoy=" + encodeURIComponent(decoy);
+      "&mode=shade&strength=" + strength + "&decoy=" + encodeURIComponent(decoy);
 
     let res;
     try {

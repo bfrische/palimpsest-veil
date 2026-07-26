@@ -19,11 +19,7 @@
 
   async function onRun() {
     const decoy = ($("decoy") && $("decoy").value || "").trim();
-    const strength = (Number($("strength").value) || 60) / 100;
-    if (!decoy) {
-      setStatus("Enter a decoy concept first (e.g. 'a vintage car').");
-      return;
-    }
+    const strength = (Number($("strength").value) || 55) / 100;
     const btn = $("run");
     if (btn) btn.disabled = true;
 
@@ -32,7 +28,7 @@
       setStatus("Reading document…");
       const px = await window.VeilPS.getActivePixels();
 
-      setStatus("Poisoning toward “" + decoy + "”… first run for a new concept can take a couple minutes.");
+      setStatus("Protecting… first run downloads the model, this can take a couple of minutes.");
       setProgress(0.15);
       const out = await window.VeilBridge.poisonProtect(px.data01, px.width, px.height, {
         decoy: decoy,
@@ -40,11 +36,11 @@
       });
 
       setProgress(0.85);
-      setStatus("Writing poisoned layer…");
-      await window.VeilPS.putResultLayer(out, px.width, px.height, px.componentSize, px.colorProfile, "Veil — poison");
+      setStatus("Writing protected layer…");
+      await window.VeilPS.putResultLayer(out, px.width, px.height, px.componentSize, px.colorProfile, "Veil — protected");
 
       setProgress(1.0);
-      setStatus("Done — added a poisoned layer (decoy: " + decoy + ").");
+      setStatus("Done — a model trained on this layer will produce broken output.");
     } catch (err) {
       setStatus("Error: " + (err && err.message ? err.message : err));
       setProgress(0);

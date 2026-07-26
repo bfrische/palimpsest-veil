@@ -1,97 +1,88 @@
 # Palimpsest Veil
 
-**Poison AI models that train on your images.** A Photoshop plugin backed by a
-local engine that applies Nightshade-style *concept poisoning*: it perturbs your
-photo — invisibly in smooth areas, as fine texture in detail — so that any model
-which scrapes it to train learns your subject as something else entirely.
+**Make your images toxic training data.** A Photoshop plugin backed by a local
+engine that applies a near-invisible adversarial perturbation so that any AI
+model which scrapes your photo to train on it comes out **degraded** — it learns
+a corrupted version of your subject and produces broken, artifact-ridden output.
 
-> Verified end-to-end: a Stable Diffusion model finetuned on 18 poisoned
-> bald‑eagle photos (decoy "a vintage car") generates **vintage cars** when asked
-> for "a photo of a bald eagle." A control model trained on the unprotected
-> originals generates clean eagles. See [Does it actually work?](#does-it-actually-work).
+> Verified end-to-end: a Stable Diffusion model finetuned on 18 protected
+> bald-eagle photos generates **3.6× more artifacts** — visibly glitched, broken
+> eagles — than a model trained on the unprotected originals. The protected
+> photos look ~identical to the originals (PSNR ~37 dB). See
+> [Does it work?](#does-it-work).
 
-## How it works
+## Destruction vs. redirection (why this design)
 
-You give it a **decoy concept** (e.g. "a vintage car"). The engine turns that
-word into an anchor image with Stable Diffusion, encodes it to a target **VAE
-latent**, then nudges your image's latent toward it — the VAE latent is the exact
-target a diffusion model learns from, which is why this poisons *training* (and
-the earlier CLIP-based approaches did not). The perturbation is concentrated in
-textured detail (feathers, foliage) by an activity mask and bounded by a budget.
+There are two ways to poison a generative model, and they trade off very
+differently on visibility:
+
+- **Redirection** (Nightshade-style: "eagle → car") *can* be done, but it
+  requires shifting the whole image's latent onto the decoy, which is
+  **visibly** printed onto your photo. Strong poison and visible ghosting are the
+  same signal — there is no clean version. (Still available as `-m poison` in the
+  CLI if you want it; it's textured.)
+- **Destruction** (what ships): corrupt the training signal so the model just
+  **fails** on your concept. This needs only a small, unstructured perturbation —
+  so it stays **near-invisible** while still breaking the model. For "make my work
+  useless to scrapers," this is the better deal, and it's the plugin's mode.
 
 ```
-engine/   Python engine: poison + anchor generation, CLI, localhost bridge, tests
-plugin/   Photoshop UXP panel (decoy field + strength slider)
+engine/   Python engine: perturbation, CLI, localhost bridge, tests
+plugin/   Photoshop UXP panel (strength slider)
 ```
 
 ## Install (one double-click)
 
-**Double-click `install.command`.** It sets up the Python engine, installs the
-plugin (no signing / Creative Cloud), and runs the engine as a background service
-that starts at login. First poison of a *new* decoy downloads / runs Stable
-Diffusion (~4 GB, cached), so it can take a couple of minutes; after that each
-decoy is cached. Everything runs on the Apple‑Silicon GPU.
+**Double-click `install.command`.** It sets up the engine, installs the plugin
+(no signing / Creative Cloud), and runs the engine as a login service. The first
+protect downloads open models (~1 GB, cached). Runs on the Apple-Silicon GPU.
+Then **quit and reopen Photoshop** → **Plugins ▸ Palimpsest Veil**. Remove with
+`uninstall.command`.
 
-Then **quit and reopen Photoshop** → **Plugins ▸ Palimpsest Veil**. Remove
-everything with `uninstall.command`.
-
-## Use — Photoshop plugin
+## Use
 
 1. Open an **8- or 16-bit RGB** image.
-2. Type a **decoy concept** (something far from your subject — "a vintage car",
-   "a pile of bricks").
-3. Set **strength** (default 80). Higher = stronger poison + more visible texture.
-4. **Poison Image** → the result is added as a new **`Veil — poison`** layer; your
-   original is untouched. Flatten and export **high quality** (PNG or max‑quality
-   JPEG) when you publish.
+2. Set **strength** (default 55). Higher = stronger corruption, slightly more
+   visible texture on detailed areas.
+3. **Protect Image** → a near-identical **`Veil — protected`** layer is added;
+   your original is untouched. Flatten and export **high quality** to publish.
 
-## Use — command line
+CLI: `python -m veil protect photo.jpg -m shade -s 0.55`
 
-```bash
-cd engine && source .venv/bin/activate
-python -m veil protect photo.jpg -m poison --decoy "a vintage car" -s 0.8
-```
-
-## Does it actually work?
+## Does it work?
 
 The only honest test is training a model and checking it breaks. The A/B harness
-that produced the result above (not shipped, available on request) finetunes an
-identical LoRA on the unprotected vs. poisoned set and generates from each:
+(not shipped, available on request) finetunes an identical LoRA on the
+unprotected vs. protected set and generates from each; artifact level is the
+mean cross-channel high-frequency energy of the outputs:
 
-| model trained on | "bald eagle" sim | "vintage car" sim |
+| model trained on | artifact level | look |
 | --- | --- | --- |
-| unprotected eagles | 0.29 | 0.15 (eagles) |
-| **poisoned eagles** | **0.19** | **0.27** (cars) |
+| nothing (base) | 1.32 | clean eagles |
+| unprotected eagles | 1.15 | clean eagles |
+| **protected eagles** | **3.64** | **glitched, broken eagles** |
 
-Cross-model: the poison is made with the engine's VAE (`sd-vae-ft-mse`) yet still
-hijacks a model trained on SD‑1.5's **stock** VAE — so it doesn't need to know the
-scraper's exact model.
+The protected source images are near-invisible (PSNR ~37 dB, max change ~10/255,
+smooth areas untouched by the activity mask).
 
 ## Limitations — read this
 
-- **It's statistical.** One poisoned image mostly gets *memorised*; the concept
-  shift comes from *many* poisoned images scraped under the same label. Protect a
-  body of work, with a consistent decoy, for real-world effect.
-- **Visible texture is the cost.** Poisoning has to move the VAE latent a real
-  distance; the mask keeps smooth areas clean but detailed areas carry texture.
-  The floor that still poisons is ~0.10 budget (slider ~55); the default 0.8 is
-  chosen for reliable effect. Drop it if a given image can't hide the texture.
-- **Transfer is verified across the SD‑1.5 family**, not (yet) a fully different
-  architecture like SDXL.
-- **Not retroactive**, and low‑quality re‑encoding erodes it — export high quality.
+- **It's statistical.** More protected images of the same subject → stronger
+  degradation. Protect a body of work.
+- **Near-invisible, not zero.** Detailed areas carry faint texture, more so at
+  higher strength; smooth areas (sky, water, bokeh) stay clean.
+- **Not retroactive**, and low-quality re-encoding erodes it — export high quality.
+- Verified against the SD-1.5 model family; a fully different architecture
+  (SDXL) is untested.
 
-Poison your own work only. This is defensive: it exists to make your images bad
-training data for anyone who takes them without consent.
+Protect your own work only. This is defensive.
 
 ## Validating a specific image
 
-`python -m veil evaluate original.png protected.png` reports visibility (PSNR /
-SSIM / LPIPS) and feature‑space movement, and writes a difference map with
-`--diff`. Note the surrogate feature metrics predict CLIP disruption, not the
-training‑time poison — the table above (a real finetune) is the ground truth.
+`python -m veil evaluate original.png protected.png` reports visibility and
+feature-space movement (`--diff` writes a difference map). The ground truth is
+the train-and-check table above.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Legacy `cloak` / `shade` modes remain in the engine
-and CLI but are **not** recommended: they disrupt CLIP-based systems without
-poisoning a diffusion model's training.
+MIT — see [LICENSE](LICENSE).
