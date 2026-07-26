@@ -1,5 +1,5 @@
-/* Talks to the local engine (engine/server.py) for the Deep tier. Sends and
- * receives normalised float32 RGB (bit-depth agnostic). Exposes window.VeilBridge. */
+/* Talks to the local engine (engine/server.py) for Poison mode. Sends and
+ * receives normalised float32 RGB. Exposes window.VeilBridge. */
 "use strict";
 (function () {
   const BASE = "http://localhost:8760";
@@ -14,15 +14,13 @@
   }
 
   // data01: Float32Array normalised RGB (3 channels). Returns Float32Array.
-  async function deepProtect(data01, width, height, opts) {
-    const mode = (opts && opts.mode) || "cloak";
-    const strength = opts && opts.strength != null ? opts.strength : 0.5;
+  async function poisonProtect(data01, width, height, opts) {
     const decoy = (opts && opts.decoy) || "";
+    const strength = opts && opts.strength != null ? opts.strength : 0.6;
 
     const qs =
       "width=" + width + "&height=" + height + "&channels=3&dtype=float32" +
-      "&mode=" + encodeURIComponent(mode) + "&strength=" + strength +
-      "&tier=deep&decoy=" + encodeURIComponent(decoy);
+      "&mode=poison&strength=" + strength + "&decoy=" + encodeURIComponent(decoy);
 
     let res;
     try {
@@ -43,6 +41,5 @@
     return new Float32Array(buf);
   }
 
-  if (typeof module !== "undefined" && module.exports) module.exports = { health, deepProtect };
-  if (typeof window !== "undefined") window.VeilBridge = { health, deepProtect };
+  if (typeof window !== "undefined") window.VeilBridge = { health, poisonProtect };
 })();

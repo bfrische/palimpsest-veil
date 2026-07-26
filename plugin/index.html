@@ -2,18 +2,14 @@
 <html>
 <head>
 <style>
-  /* Sizing/spacing only — colors come from the host theme via Spectrum
-     components so all Photoshop themes work untouched. */
   body { margin: 0; }
   #root { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 12px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .lbl { opacity: 0.8; }
   .muted { opacity: 0.7; }
+  .hint { opacity: 0.55; font-size: 11px; }
   [hidden] { display: none !important; }
-  #root sp-picker,
-  #root sp-textfield,
-  #root sp-slider,
-  #root sp-button { width: 100%; }
+  #root sp-textfield, #root sp-slider, #root sp-button { width: 100%; }
   .progressWrap {
     width: 100%; height: 6px; border-radius: 3px;
     background: rgba(128,128,128,0.25); overflow: hidden;
@@ -30,47 +26,30 @@
 <body>
   <div id="root">
     <sp-heading size="S">Palimpsest Veil</sp-heading>
-    <sp-body size="XS" class="muted">Protect your images from AI training</sp-body>
+    <sp-body size="XS" class="muted">Poison AI models that train on your images</sp-body>
+
+    <sp-divider size="M"></sp-divider>
 
     <div class="field">
-      <sp-body size="XS" class="lbl">Mode</sp-body>
-      <sp-picker id="mode" size="M">
-        <sp-menu slot="options">
-          <sp-menu-item value="cloak" selected>Cloak — hide style</sp-menu-item>
-          <sp-menu-item value="shade">Shade — poison concept</sp-menu-item>
-        </sp-menu>
-      </sp-picker>
-    </div>
-
-    <div class="field" id="decoyRow" hidden>
       <sp-body size="XS" class="lbl">Decoy concept</sp-body>
-      <sp-textfield id="decoy" placeholder="e.g. stained glass"></sp-textfield>
+      <sp-textfield id="decoy" placeholder="e.g. a vintage car"></sp-textfield>
+      <sp-body class="hint">A model that scrapes this image learns your subject as this instead.</sp-body>
     </div>
 
     <div class="field">
-      <sp-slider id="strength" min="0" max="100" value="50">
+      <sp-slider id="strength" min="0" max="100" value="80">
         <sp-label slot="label">Strength</sp-label>
       </sp-slider>
+      <sp-body class="hint">Higher = stronger poison, more visible texture on detailed areas.</sp-body>
     </div>
 
-    <div class="field">
-      <sp-body size="XS" class="lbl">Tier</sp-body>
-      <sp-picker id="tier" size="M">
-        <sp-menu slot="options">
-          <sp-menu-item value="quick" selected>Quick — instant</sp-menu-item>
-          <sp-menu-item value="deep">Deep — strong</sp-menu-item>
-        </sp-menu>
-      </sp-picker>
-    </div>
-
-    <sp-button id="run" variant="cta">Protect Image</sp-button>
+    <sp-button id="run" variant="cta">Poison Image</sp-button>
 
     <div class="progressWrap"><div id="bar" class="bar"></div></div>
     <sp-body id="status" size="XS" class="muted">Ready.</sp-body>
     <sp-body size="XS" class="muted"><span id="dot" class="dot"></span><span id="engineText">Engine: checking…</span></sp-body>
   </div>
 
-  <script src="src/quick.js"></script>
   <script src="src/bridge.js"></script>
   <script src="src/photoshop.js"></script>
   <script src="src/main.js"></script>

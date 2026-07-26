@@ -30,7 +30,28 @@ STEPS_MAX = 120
 TILE_SIZE = 512
 TILE_OVERLAP = 48
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
+
+# --- Poison mode (Nightshade-style VAE-latent targeting) ----------------------
+# The decoy word is turned into an "anchor" image via Stable Diffusion, encoded
+# to a target latent; each protected image's latent is dragged toward it.
+SD_MODEL_ID = os.environ.get("VEIL_SD", "sd-legacy/stable-diffusion-v1-5")
+ANCHOR_DIR = CACHE_DIR / "anchors"
+# Perceptual budget for poison (L-inf in 0..1). Verified floor for cross-VAE
+# transfer is ~0.10; below that it stops poisoning. strength maps into this.
+POISON_EPS_MIN = 0.06
+POISON_EPS_MAX = 0.18
+POISON_WORK_MAX = 1536  # cap the optimisation resolution; delta is upsampled back
+
+
+def poison_strength_to_eps(strength: float) -> float:
+    strength = max(0.0, min(1.0, float(strength)))
+    return POISON_EPS_MIN + (POISON_EPS_MAX - POISON_EPS_MIN) * strength
+
+
+def poison_strength_to_steps(strength: float) -> int:
+    strength = max(0.0, min(1.0, float(strength)))
+    return int(round(150 + 100 * strength))
 
 
 def strength_to_eps(strength: float) -> float:

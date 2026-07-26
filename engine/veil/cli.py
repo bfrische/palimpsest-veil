@@ -18,7 +18,22 @@ def _default_out(inp: str) -> str:
 def _protect_cmd(args) -> int:
     arr, _ = imageio.load_rgba(args.input)
     t0 = time.time()
-    if args.quick:
+    if args.mode == "poison":
+        import numpy as np
+
+        from .poison import poison_protect_float
+
+        def prog(f: float) -> None:
+            print(f"\r  poison {f * 100:5.1f}%", end="", file=sys.stderr, flush=True)
+
+        out01 = poison_protect_float(
+            arr[..., :3].astype(np.float32) / 255.0,
+            decoy=args.decoy or "a vintage car", strength=args.strength, progress=prog,
+        )
+        print("", file=sys.stderr)
+        result = (out01 * 255.0).round().clip(0, 255).astype(np.uint8)
+        tier, label = "poison", f"poison->{args.decoy or 'a vintage car'}"
+    elif args.quick:
         result = quick.quick_protect(arr, strength=args.strength, seed=args.seed)
         tier, label = "quick", "quick"
     else:
@@ -66,8 +81,9 @@ def build_parser() -> argparse.ArgumentParser:
     pp = sub.add_parser("protect", help="protect a single image")
     pp.add_argument("input", help="path to the input image")
     pp.add_argument("-o", "--output", help="output path (default: <name>_veil.<ext>)")
-    pp.add_argument("-m", "--mode", choices=modes.MODES, default=modes.CLOAK,
-                    help="cloak = style protection, shade = concept poisoning")
+    pp.add_argument("-m", "--mode", choices=list(modes.MODES) + ["poison"], default="poison",
+                    help="poison = Nightshade-style concept poisoning (recommended); "
+                         "cloak/shade = legacy CLIP/latent disruption")
     pp.add_argument("-s", "--strength", type=float, default=0.5,
                     help="0..1; higher = stronger + more visible")
     pp.add_argument("--decoy", default=None, help="Shade decoy concept, e.g. 'stained glass'")

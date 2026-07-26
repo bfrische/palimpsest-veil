@@ -36,3 +36,12 @@ sample*.png
 # macOS
 .DS_Store
 .AppleDouble
+
+# Experiment scratch / artifacts (not source)
+engine/exp_data/
+engine/exp_out/
+engine/kf_*.png
+engine/kf_*.jpg
+engine/v2*.jpg
+engine/v2*.png
+engine/veil_compare.png

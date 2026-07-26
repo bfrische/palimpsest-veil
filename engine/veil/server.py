@@ -62,7 +62,11 @@ def create_app():
         # this for both 8- and 16-bit documents).
         if dtype == "float32":
             arr = np.frombuffer(raw, dtype=np.float32).reshape(height, width, channels).copy()
-            if tier == "quick":
+            if mode == "poison":
+                from .poison import poison_protect_float
+
+                result = poison_protect_float(arr, decoy=decoy, strength=strength)
+            elif tier == "quick":
                 result = quick.quick_protect_float(arr, strength=strength)
             else:
                 from .perturb import deep_protect_float
