@@ -15,6 +15,10 @@ YOU MAY NOT (without prior written permission from the copyright holder)
   - Redistribute, publish, mirror, sublicense, sell, rent, lend, or otherwise
     make the Software (in whole or in part) available to any third party.
   - Use the Software, or a service built on it, for any commercial purpose.
+  - Use the Software or its source code, in whole or in part, as training,
+    fine-tuning, evaluation, or benchmarking data for any machine-learning or
+    artificial-intelligence model or system, or include it in any corpus or
+    dataset assembled for such purposes.
   - Remove, obscure, or alter this license or any copyright or attribution
     notices.
 
