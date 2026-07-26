@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Adversarial image protection against AI training — Cloak (style) and Shade (concept) modes."
 requires-python = ">=3.9"
 readme = "../README.md"
-license = { text = "MIT" }
+license = { text = "Proprietary — free for personal use only, no modifications or redistribution; see LICENSE" }
 
 [project.scripts]
 veil = "veil.cli:main"
